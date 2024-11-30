@@ -25,7 +25,8 @@ class BusinessResource extends JsonResource
             'description' => $this->description,
             'keywords' => $this->keywords,
             'is_approved' => $this->is_approved,
-
+            'contact_person_name'=>$this->contact_person_name,
+            'contact_person_email'=>$this->contact_person_email,
             'created_at' => $this->created_at->format('d/m/Y'),
             'updated_at' => $this->updated_at->format('d/m/Y'),
         ];

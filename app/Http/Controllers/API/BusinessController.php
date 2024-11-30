@@ -8,6 +8,10 @@ use App\Models\Business;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Resources\BusinessResource;
 use Illuminate\Http\JsonResponse;
+// use Illuminate\Support\Facades\DB;
+use App\Models\BusinessBuyer;
+use App\Http\Resources\BusinessBuyerResource;
+
 
 class BusinessController extends BaseController
 {
@@ -21,7 +25,7 @@ class BusinessController extends BaseController
         
         //$items = Bussiness::paginate(1); 
         
-        $items = Business::paginate(2)->appends(['sort' => 'name']);
+        $items = Business::paginate(10)->appends(['sort' => 'name']);
 
         $data = [
             'data' => BusinessResource::collection($items->items()), // Format the items
@@ -45,30 +49,109 @@ class BusinessController extends BaseController
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
+    // public function store(Request $request): JsonResponse
+    // {
+    //     $input = $request->all();
+
+    //     $validator = Validator::make($input, [
+    //         'business_name' => 'required',
+    //         'address' => 'required',
+    //         'city' => 'required',
+    //         'postal_code' => 'nullable|string',
+    //         'phone_number' => 'required',
+    //         'website' => 'required',
+    //         'description' => 'nullable|string',
+    //         'keywords' => 'required',
+    //         'is_approved' => 'nullable|string',
+    //         'contact_person_name'=>'string|nullable',
+    //         'contact_person_email'=>'string|nullable',
+    //     ]);
+
+    //     if($validator->fails()){
+    //         return $this->sendError('Validation Error.', $validator->errors());       
+    //     }
+
+    //     $business = Business::create($input);
+
+    //     return $this->sendResponse(new BusinessResource($business), 'Business created successfully.');
+    // } 
+
     public function store(Request $request): JsonResponse
     {
         $input = $request->all();
-
+    
+        // Validate the main business fields
         $validator = Validator::make($input, [
             'business_name' => 'required',
             'address' => 'required',
             'city' => 'required',
-            'postal_code' => 'required',
+            'postal_code' => 'nullable|string',
             'phone_number' => 'required',
             'website' => 'required',
-            'description' => 'required',
+            'description' => 'nullable|string',
             'keywords' => 'required',
-            'is_approved' => 'required'
+            'is_approved' => 'nullable|string',
+            'contact_person_name' => 'string|nullable',
+            'contact_person_email' => 'string|nullable',
+            'prospective_buyers' => 'nullable|array', // Ensure prospective_buyers is an array
+            'prospective_buyers.*.companyName' => 'required_with:prospective_buyers|string',
+            'prospective_buyers.*.location' => 'required_with:prospective_buyers|string',
+            'prospective_buyers.*.contactDetails' => 'nullable|string',
         ]);
-
-        if($validator->fails()){
-            return $this->sendError('Validation Error.', $validator->errors());       
+    
+        if ($validator->fails()) {
+            return $this->sendError('Validation Error.', $validator->errors());
         }
+    
+        try {
+            // Wrap the entire operation in a database transaction
+            // DB::beginTransaction();
+    
+            // Create the business
+            $business = Business::create([
+                'business_name' => $input['business_name'],
+                'address' => $input['address'],
+                'city' => $input['city'] ?? null,
+                'postal_code' => $input['postal_code'] ?? null,
+                'phone_number' => $input['phone_number'] ?? null,
+                'website' => $input['website'],
+                'description' => $input['description'] ?? null,
+                'keywords' => $input['keywords'] ?? null,
+                'is_approved' => $input['is_approved'] ?? 0,
+                'contact_person_name' => $input['contact_person_name'],
+                'contact_person_email' => $input['contact_person_email'],
+            ]);
+    
+            // If prospective buyers exist, loop through them and save them to the database
+            if (!empty($input['prospective_buyers'])) {
+                foreach ($input['prospective_buyers'] as $buyer) {
+                    BusinessBuyer::create([
+                        'business_id' => $business->id,
+                        'company_name' => $buyer['companyName'],
+                        'location' => $buyer['location'],
+                        'contact_details' => $buyer['contactDetails'] ?? null,
+                    ]);
+                }
+            }
+    
+            // Commit the transaction
+            // DB::commit();
+    
+            return $this->sendResponse(new BusinessResource($business), 'Business and prospective buyers created successfully.');
+    
+        } catch (\Exception $e) {
+            // Rollback the transaction in case of any error
+            // DB::rollBack();
+    
+            return $this->sendError('An error occurred while saving the data.', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ], 500);
+        }
+    }
+    
 
-        $business = Business::create($input);
 
-        return $this->sendResponse(new BusinessResource($business), 'Business created successfully.');
-    } 
 
     /**
      * Display the specified resource.
@@ -84,7 +167,7 @@ class BusinessController extends BaseController
             return $this->sendError('Business not found.');
         }
 
-        return $this->sendResponse(new BusinessResource($business), 'Business retrieved successfully.');
+        return $this->sendResponse(new BusinessResource($business), 'Business retrieved successfully.',JSON_PRETTY_PRINT);
     }
     
     /**
@@ -102,12 +185,14 @@ class BusinessController extends BaseController
             'business_name' => 'required',
             'address' => 'required',
             'city' => 'required',
-            'postal_code' => 'required',
+            'postal_code' => 'nullable',
             'phone_number' => 'required',
             'website' => 'required',
-            'description' => 'required',
+            'description' => 'nullable',
             'keywords' => 'required',
-            'is_approved' => 'required'
+            'is_approved' => 'required',
+            'contact_person_name'=>'string|nullable',
+            'contact_person_email'=>'string|nullable',
         ]);
 
         if($validator->fails()){
@@ -123,6 +208,8 @@ class BusinessController extends BaseController
         $business->description = $input['description'];
         $business->keywords = $input['keywords'];
         $business->is_approved = $input['is_approved'];
+        $business->contact_person_name = $input['contact_person_name'];
+        $business->contact_person_email = $input['contact_person_email'];
         $business->save();
 
         return $this->sendResponse(new BusinessResource($business), 'Business updated successfully.');
@@ -157,17 +244,29 @@ class BusinessController extends BaseController
 
 
 
-    // public function destroy($id)
-    // {
-    //     $business = Business::find($id);
+    public function destroy($id)
+    {
+        $business = Business::find($id);
 
-    //     if ($business) {
-    //         $business->delete(); // Soft deletes the record
-    //         return $this->sendResponse(new BusinessResource($business), 'Business deleted successfully.');
-    //     }
+        if ($business) {
+            // Perform a soft delete
+            $business->delete();
 
-    //     return $this->sendError('Business not found.');
-    // }
+            // If you want to hard delete instead, use the line below:
+            // $business->forceDelete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Business deleted successfully.',
+                'data' => new BusinessResource($business),
+            ], 200);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Business not found.',
+        ], 404);
+    }
 
     // public function restore($id)
     // {
