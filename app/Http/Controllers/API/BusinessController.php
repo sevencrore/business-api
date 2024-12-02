@@ -245,28 +245,18 @@ class BusinessController extends BaseController
 
 
     public function destroy($id)
-    {
-        $business = Business::find($id);
-
-        if ($business) {
-            // Perform a soft delete
-            $business->delete();
-
-            // If you want to hard delete instead, use the line below:
-            // $business->forceDelete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Business deleted successfully.',
-                'data' => new BusinessResource($business),
-            ], 200);
-        }
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Business not found.',
-        ], 404);
+{
+    $business = Business::find($id);
+    if (!$business) {
+        return response()->json(['success' => false, 'message' => 'Business not found'], 404);
     }
+
+    // Perform deletion
+    $business->delete();
+
+    return response()->json(['success' => true, 'message' => 'Business deleted successfully.', 'data' => $business]);
+}
+
 
     // public function restore($id)
     // {

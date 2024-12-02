@@ -32,7 +32,7 @@ Route::get('business/{business}', [BusinessController::class, 'show'])->name('bu
 // Define route for showing the form to edit a specific product
 Route::get('business/{business}/edit', [BusinessController::class, 'edit'])->name('business.edit');
 Route::post('business/{business}/edit', [BusinessController::class, 'edit'])->name('business.edit');
-Route::delete('business/delete/{business}', [BusinessController::class, 'destroy'])->name('business.destroy');
+Route::delete('business/delete/{id}', [BusinessController::class, 'destroy'])->name('business.destroy');
 
 // Define route for updating a specific product
 Route::put('business/{business}', [BusinessController::class, 'update'])->name('business.update');
